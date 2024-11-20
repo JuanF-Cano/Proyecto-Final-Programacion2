@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 typedef struct {
     unsigned char DD;
@@ -114,7 +115,7 @@ void CreateSalesTable(char fileName[]) {
         token = strtok(NULL, ";");
         if (strlen(token) - 1 <= 3) {
             strcpy(data.CurrencyCode, token);
-        } else {counterErrors++; printf("\nError (%i): Overflow CurrencyCode: %s", counterErrors);}
+        } else {counterErrors++; printf("\nError (%i): Overflow CurrencyCode: %s", counterErrors, data.CurrencyCode);}
 
         if (fwrite(&data, sizeof(data), 1, fpSales) != 1) {
                 printf("\nError writing to file. Order number: %li\n", data.OrderNumber);
@@ -124,6 +125,7 @@ void CreateSalesTable(char fileName[]) {
     }
     printf("\nRecords entered: %i", countRegisters);
     fclose(fp);fclose(fpSales);
+    return;
 }
 
 void CreateCustomersTable(char fileName[]) {
@@ -202,6 +204,7 @@ void CreateCustomersTable(char fileName[]) {
     }
     printf("\nRecords entered: %i", countRegisters);
     fclose(fp); fclose(fpCustomers);
+    return;
 }
 
 float parseToken(char **token) {
@@ -292,6 +295,7 @@ void CreateProductsTable(char fileName[]) {
     }
     printf("\nRecords entered: %i", countRegisters);
     fclose(fp);fclose(fpProducts);
+    return;
 }
 
 void CreateStoresTable(char fileName[]) {
@@ -349,6 +353,7 @@ void CreateStoresTable(char fileName[]) {
     }
     printf("\nRecords entered: %i", countRegisters);
     fclose(fp); fclose(fpStores);
+    return;
 }
 
 void CreateExchangeRatesTable(char fileName[]) {
@@ -391,13 +396,14 @@ void CreateExchangeRatesTable(char fileName[]) {
     }
     printf("\nRecords entered: %i", countRegisters);
     fclose(fp); fclose(fpExchangeRates);
+    return;
 }
 
 
 void Merge(FILE *fp, int left, int right, int medium, size_t size, Compare compare) {
     FILE *fpAux = fopen("auxiliar.table", "wb+");
     if (fpAux == NULL) {
-        printf("Error al abrir el archivo auxiliar.\n");
+        printf("Error opening file: auxiliar.\n");
         return;
     }
     int i = left, j = medium + 1;
@@ -454,7 +460,6 @@ int MergeSort(char fileName[], char nameDest[], size_t size, Compare compare) {
         printf("Error opening file: %s\n", fileName);
         return 1;
     }
-
     FILE *fpDest = fopen(nameDest, "wb+");
     if (fpDest == NULL) {
         printf("Error opening file: %s\n", nameDest);
@@ -465,21 +470,84 @@ int MergeSort(char fileName[], char nameDest[], size_t size, Compare compare) {
     int registers = ftell(fp) / size;
     fseek(fp, 0, SEEK_SET);
     void *record = malloc(size);
-    while (fread(record, 1, size, fp)) {
-        fwrite(record, 1, size, fpDest);
+    while (fread(record, size, 1, fp)) {
+        fwrite(record, size, 1, fpDest);
     }
 
     fseek(fpDest, 0, SEEK_SET);
     Sort(fpDest, 0, registers - 1, size, compare);
     
     fclose(fp); fclose(fpDest);
-
+    remove("auxiliar.table");
     return registers;
 }
 
-int CompareProductName(const void *a, const void *b) {
-    const ProductsData *productA = (const ProductsData*)a;
-    const ProductsData *productB = (const ProductsData*)b;
+void swap(FILE *fpDest, int pos1, int pos2, size_t size) {
+    void *temp1 = malloc(size);
+    void *temp2 = malloc(size);
+
+    fseek(fpDest, pos1 * size, SEEK_SET);
+    fread(temp1, size, 1, fpDest);
+    fseek(fpDest, pos2 * size, SEEK_SET);
+    fread(temp2, size, 1, fpDest);
+
+    fseek(fpDest, pos1 * size, SEEK_SET);
+    fwrite(temp2, size, 1, fpDest);
+    fseek(fpDest, pos2 * size, SEEK_SET);
+    fwrite(temp1, size, 1, fpDest);
+
+    free(temp1);
+    free(temp2);
+}
+
+int BubbleSort(char fileName[], char nameDest[], size_t size, Compare compare) {
+    FILE *fp = fopen(fileName, "rb");
+    if (fp == NULL) {
+        printf("Error opening file: %s", fileName);
+        return 1;
+    }
+    FILE *fpDest = fopen(nameDest, "wb+");
+    if (fp == NULL) {
+        fclose(fp);
+        printf("Error opening file: %s", nameDest);
+        return 1;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    int registers = ftell(fp) / size;
+    fseek(fp, 0, SEEK_SET); 
+    void *record = malloc(size);
+    while (fread(record, size, 1, fp)) {
+        fwrite(record, size, 1, fpDest);
+    }
+
+    fseek(fpDest, 0, SEEK_SET);
+
+    for (int i = 0; i < registers - 1; i++) {
+        printf("%s: %i\n",fileName, i + 1);
+        for (int j = 0; j < registers - i - 1; j++) {
+            void *temporal1 = malloc(size);
+            void *temporal2 = malloc(size);
+            fseek(fpDest, j * size, SEEK_SET);
+            fread(temporal1, size, 1, fpDest);
+            fseek(fpDest, (j + 1) * size, SEEK_SET);
+            fread(temporal2, size, 1, fpDest);
+            if (compare(temporal1, temporal2) > 0) {
+                swap(fpDest, j, j + 1, size);
+            }
+            free(temporal1);
+            free(temporal2);
+        }
+    }
+
+    fclose(fp); fclose(fpDest);
+    
+    return registers;
+}
+
+int CompareProductName(const void *product1, const void *product2) {
+    const ProductsData *productA = (const ProductsData*)product1;
+    const ProductsData *productB = (const ProductsData*)product2;
     return strcmp(productA->ProductName, productB->ProductName);
 }
 
@@ -489,17 +557,10 @@ int CompareSaleByProductKey(const void *register1, const void *register2) {
     return (sale1->ProductKey > sale2->ProductKey) - (sale1->ProductKey < sale2->ProductKey);
 }
 
-/* 
-int CompareProductKey(const void *a, const void *b) {
-    const ProductsData *productA = (const ProductsData*)a;
-    const ProductsData *productB = (const ProductsData*)b;
-    return (productA->ProductKey > productB->ProductKey) - (productA->ProductKey < productB->ProductKey);
-}
-
 int CompareCustomerKey(const void *key1, const void *key2) {
-    const SalesData *customer1 = (const SalesData*)key1;
-    const SalesData *customer2 = (const SalesData*)key2;
-    return (customer1->CustomerKey > customer2->CustomerKey) - (customer1->CustomerKey < customer2->CustomerKey);
+    const CustomersData *customer1 = (const CustomersData*)key1;
+    const CustomersData *customer2 = (const CustomersData*)key2;
+    return (customer1->CustomersKey > customer2->CustomersKey) - (customer1->CustomersKey < customer2->CustomersKey);
 }
 
 int CompareCustomerLocation(const void *record1, const void *record2) {
@@ -517,7 +578,6 @@ int CompareCustomerLocation(const void *record1, const void *record2) {
     }
     return result;
 }
- */
 
 
 int BinarySearch(char fileName[], unsigned int item, size_t size, int registers, int option) {
@@ -526,75 +586,180 @@ int BinarySearch(char fileName[], unsigned int item, size_t size, int registers,
         printf("Error opening file: %s\n", fileName);
         return -1;
     }
-
     int start = 0;
     int end = registers - 1;
-    int result = -1;
     int medium = (registers - 1) / 2;
-    ProductsData product;
+    void *record = malloc(size);
+    int result = -1;
 
     while (start <= end) {
         medium = start + (end - start) / 2;
         fseek(fp, medium * size, SEEK_SET);
-        fread(&product, size, 1, fp);
-        printf("%i, %i\n", medium, product.ProductKey);
-        if (product.ProductKey == item) {
+        fread(record, size, 1, fp);
+        unsigned int key = 0;
+        if (option == 1) {
+            ProductsData *product = (ProductsData *)record;
+            key = product->ProductKey;
+        } else if (option == 2) {
+            SalesData *sale = (SalesData *)record;
+            key = sale->ProductKey;
+        } else if (option == 3) {
+            CustomersData *customer = (CustomersData *)record;
+            key = customer->CustomersKey;
+        }
+        if (key == item) {
             result = medium;
             start = end + 1;
-        } else if (product.ProductKey > item) {
+        } else if (key > item) {
             end = medium - 1;
         } else {
             start = medium + 1;
         }
     }
 
+    free(record);
     fclose(fp);
-    printf("%i\n", medium);
     return result;
 }
 
 
-void print
+void PrintReport2(int option) {
+    clock_t start = clock();
+    int salesRegisters = 0;
+    int customersRegisters = 0;
+    if (option == 1) {
+        BubbleSort("Products.table", "ProductsOrder.table", sizeof(ProductsData), CompareProductName);
+        salesRegisters = BubbleSort("Sales.table", "SalesOrder.table", sizeof(SalesData), CompareSaleByProductKey);
+        customersRegisters = BubbleSort("Customers.table", "CustomersOrder.table", sizeof(CustomersData), CompareCustomerKey);
+    } else if (option == 2) {
+        MergeSort("Products.table", "ProductsOrder.table", sizeof(ProductsData), CompareProductName);
+        salesRegisters = MergeSort("Sales.table", "SalesOrder.table", sizeof(SalesData), CompareSaleByProductKey);
+        customersRegisters = MergeSort("Customers.table", "CustomersOrder.table", sizeof(CustomersData), CompareCustomerKey);
+    }
+
+    FILE *fpProducts = fopen("ProductsOrder.table", "rb");
+    if (fpProducts == NULL) {
+        printf("Error opening file: ProductsOrder.table.\n");
+        return;
+    }
+    FILE *fpSales = fopen("SalesOrder.table", "rb");
+    if (fpSales == NULL) {
+        printf("Error opening file: SalesOrder.table.\n");
+        fclose(fpProducts);
+        return;
+    }
+    FILE *fpCustomers = fopen("CustomersOrder.table", "rb");
+    if (fpCustomers == NULL) {
+        printf("Error opening file: CustomersOrder.table.\n");
+        fclose(fpProducts);
+        fclose(fpSales);
+        return;
+    }
+    ProductsData product;
+    SalesData sale;
+    CustomersData customer;
+    int result = 0;
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+    printf("Company Global Electronics Retailer\nValid to 2024-May-06 at 14:22 hours\nProducts list ordered by ProductName + Continent + Country + Sate + City\n");
+
+    while (fread(&product, sizeof(ProductsData), 1, fpProducts) == 1) {
+        FILE *fpAux = fopen("CustomersAux.table", "wb");
+        if (fpAux == NULL) {
+            printf("Error opening file: CustomersAux.table.\n");
+            fclose(fpProducts);
+            fclose(fpSales);
+            fclose(fpCustomers);
+            return;
+        }
+
+        printf("ProductName: %s", product.ProductName);
+        result = BinarySearch("SalesOrder.table", product.ProductKey, sizeof(SalesData), salesRegisters, 2);
+        if (result == -1) {
+            printf(" - No sales reported\n");
+        } else {
+            printf("\n%-22s %-22s %-32s %-42s\n", "Continent", "Country", "State", "City");
+            printf("________________________________________________________________________________________________________________________________\n");
+
+            fseek(fpSales, result * sizeof(SalesData), SEEK_SET);
+            while (fread(&sale, sizeof(SalesData), 1, fpSales) == 1 && sale.ProductKey == product.ProductKey) {
+                int customerPos = BinarySearch("CustomersOrder.table", sale.CustomerKey, sizeof(CustomersData), customersRegisters, 3);
+                if (customerPos != -1) {
+                    fseek(fpCustomers, customerPos * sizeof(CustomersData), SEEK_SET);
+                    fread(&customer, sizeof(CustomersData), 1, fpCustomers);
+                    fwrite(&customer, sizeof(CustomersData), 1, fpAux);
+                }
+            }
+            fclose(fpAux);
+            if (option == 1) {
+                BubbleSort("CustomersAux.table", "CustomersAuxOrder.table", sizeof(CustomersData), CompareCustomerLocation);
+            } else if (option == 2) {
+                MergeSort("CustomersAux.table", "CustomersAuxOrder.table", sizeof(CustomersData), CompareCustomerLocation);
+            }
+            FILE *fpOrder = fopen("CustomersAuxOrder.table", "rb");
+            if (fpOrder != NULL) {
+                while (fread(&customer, sizeof(CustomersData), 1, fpOrder) == 1) {
+                    printf("%-22s %-22s %-32s %-42s\n", customer.Continent, customer.Country, customer.State, customer.City);
+                }
+                fclose(fpOrder);
+            } else {
+                printf("Error opening file: CustomersAuxOrder.table.\n");
+            }
+            printf("________________________________________________________________________________________________________________________________\n\n");
+        }
+    }
+    remove("CustomersAux.table");
+    remove("CustomersAuxOrder.table");
+
+    clock_t end = clock();
+    double totalTime = ((double)(end - start)) / CLOCKS_PER_SEC;
+    int minutes = (int)(totalTime / 60);
+    int seconds = (int)(totalTime) % 60;
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+    printf("\t\t\t\t\tTime used to produce this listing: %d'%d\"\n************************************************LAST LINE OF THE REPORT*************************************************\n", minutes, seconds);
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+
+    fclose(fpProducts);
+    fclose(fpSales);
+    fclose(fpCustomers);
+}
 
 int main() {
-    int option = 0;
-    int productsRegisters = 0, salesRegisters = 0;
+    float option = 0.0; 
+    do {
+        printf("\n\nCompany Global Electronics Retailer\nOptions menu\n");
+        printf("0. Exit program\n1. Construction of the Database with the dataset tables\n");
+        printf("2. List of ¿What types of products does the company sell, and where are customers located?\n\t2.1 Utility bubbleSort\n\t2.2 Utility mergeSort\n");
+        printf("3. List of ¿Are there any seasonal patterns or trends for order volume or revenue?\n\t3.1 Utility bubbleSort\n\t3.2 Utility mergeSort\n");
+        printf("4. List of ¿How long is the average delivery time in days? Has that changed over time?\n\t4.1 Utility bubbleSort\n\t4.2 Utility mergeSort\n");
+        printf("5. List of sales order by \"Customer Name\"+\"Order Date\"+\"ProductKey\";\n\t5.1 Utility bubbleSort\n\t5.2 Utility mergeSort\nWhat is your option: ");
+        scanf("%f", &option);
+        option = (option * 10);
 
-    printf("Company Global Electronics Retailer\nOptions menu\n");
-    printf("0. Exit program\n1. Construction of the Database with the dataset tables\n");
-    printf("2. List of %cWhat types of products does the company sell, and where are customers located?\n", 168);
-    printf("3. List of %c Are there any seasonal patterns or trends for order volume or revenue?\n", 168); 
-    printf("4. List of %cHow long is the average delivery time in days? Has that changed over time?\n", 168);
-    printf("5. List of sales order by \"Costumer Name\"+\"Order Date\"+\"ProductKey\";\nWhat is your option: ");
-
-    scanf("%i", &option);
-    if (option == 1) {
-        char file[30];
-        printf("Enter the file name: ");
-        scanf("%s", file);
-        if (strcmp(file, "Sales.dat") == 0) {
-            CreateSalesTable(file);
-        } else if (strcmp(file, "Customers.dat") == 0) {
-            CreateCustomersTable(file);
-        } else if (strcmp(file, "Stores.dat") == 0) {
-            CreateStoresTable(file);
-        } else if (strcmp(file, "Exchange_Rates.dat") == 0) {
-            CreateExchangeRatesTable(file);
-        } else if (strcmp(file, "Products.dat") == 0) {
-            CreateProductsTable(file);
+        if (option == 10) {
+            char file[30];
+            printf("Enter the file name: ");
+            scanf("%s", file);
+            if (strcmp(file, "Sales.dat") == 0) {
+                CreateSalesTable(file);
+            } else if (strcmp(file, "Customers.dat") == 0) {
+                CreateCustomersTable(file);
+            } else if (strcmp(file, "Stores.dat") == 0) {
+                CreateStoresTable(file);
+            } else if (strcmp(file, "Exchange_Rates.dat") == 0) {
+                CreateExchangeRatesTable(file);
+            } else if (strcmp(file, "Products.dat") == 0) {
+                CreateProductsTable(file);
+            } else {
+                printf("File not found.");
+            }
+        } else if (option == 21) {
+            PrintReport2(1);
+        } else if (option == 22) {
+            PrintReport2(2);
         } else {
-            printf("\nFile not found.");
+            printf("\nInvalid option\n");
         }
-    } else if (option == 2) {
-        productsRegisters = MergeSort("Products.table", "ProductsOrder.table", sizeof(ProductsData), CompareProductName);
-        salesRegisters = MergeSort("Sales.table", "SalesOrder.table", sizeof(SalesData), CompareSaleByProductKey);
-        /* FILE *fp = fopen("ProductsOrder.table", "rb");
-        fseek(fp, BinarySearch("ProductsOrder.table", 200, sizeof(ProductsData), productsRegisters, 1) * sizeof(ProductsData), SEEK_SET);
-        ProductsData product;
-        fread(&product,sizeof(ProductsData), 1, fp);
-        printf("%i\t%s\n", product.ProductKey, product.ProductName);
-        fclose(fp); */
-    }
+    } while (option != 0);
 
     return 0;
 }
