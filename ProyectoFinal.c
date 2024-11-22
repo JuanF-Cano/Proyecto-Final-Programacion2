@@ -745,58 +745,48 @@ void PrintReport2(int option) {
     fclose(fpCustomers);
 }
 
-void Graph(float array[12]){
-    char pantalla[24][56] = {{}};
-    char meses[] = " ene feb mar abr may jun jul ago sep oct nov dic";
-    memset(pantalla, ' ', sizeof(pantalla));
-    double yMax = array[0];
+void Graph(char pantalla[24][56], float array[12]){
+    float arrAux[12] = {0.0};
+    for (int i = 0; i < 12; i++) {
+        arrAux[i] = array[i];
+    }
+    double yMax = arrAux[0];
     if((int)yMax / 1000000 >= 1){
-        for(int i=0; i<12; i++){
-            array[i] = array[i]/1000000;
+        for(int i = 0; i < 12; i++){
+            arrAux[i] = arrAux[i] / 1000000;
         }
-        yMax = array[0];
+        yMax = arrAux[0];
     }
     
     for(int i = 0; i < 12; i++){
-        if(array[i] > yMax){
-            yMax = array[i];
+        if(arrAux[i] > yMax){
+            yMax = arrAux[i];
         }
     }
-    double pixelY = (fabs(yMax) == 0) ? 24 :  24.0/fabs(yMax);
+    double pixelY = (fabs(yMax) == 0) ? 24 :  24.0 / fabs(yMax);
 
-    for(int i= 0; i<24; i++){
-        pantalla[i][9]=179;
+    for(int i = 0; i < 24; i++){
+        pantalla[i][9] = 179;
     }
-    for(int i = 9; i <56; i++){
+    for(int i = 9; i < 56; i++){
         if(i != 9){
             pantalla[23][i] = 196;
         }else{
-            pantalla[23][i] = 197;
+            pantalla[23][i] = 192;
         }
     }
-    for(int i = 0; i< 12; i++){
-        int placeY = (int) 24.0-round(pixelY*array[i]);
+    for(int i = 0; i < 12; i++){
+        int placeY = (int) 24.0-round(pixelY * arrAux[i]);
         char cadena[12] = "";
-        sprintf(cadena, "%.2f", array[i]);
+        sprintf(cadena, "%.2f", arrAux[i]);
         int longitudCadena = strlen(cadena);
-        for(int j = 0; j<longitudCadena; j++){
+        for(int j = 0; j < longitudCadena; j++){
                 pantalla[placeY][j] = cadena[j];
         }
-        pantalla[placeY][11+(4*i)] = 'x';
+        pantalla[placeY][11 + (4 * i)] = 'x';
     }
 
-    printf("\n");
-    for(int i = 0; i<24; i++){
-        for(int j = 0; j<56; j++){
-            if(!pantalla[i][j]){
-                printf(" ");
-            }else{
-                printf("%c", pantalla[i][j]);
-            }
-        }
-        printf("\n");
-    }
-    printf("         %s", meses);
+    return;
 }
 
 float GetProductPrice(unsigned short int productKey, int registers) {
@@ -830,13 +820,15 @@ void PrintSeasonalAnalysis(int option) {
         printf("Error opening file: Sales.table\n");
         return;
     }
+    SalesData startDate, finalDate;
     int yearsAnalyzed = 0;
     fread(&sale, sizeof(SalesData), 1, fpSales);
-    yearsAnalyzed = sale.OrderDate.AAAA;
+    startDate = sale;
     fseek(fpSales, -1 * sizeof(SalesData), SEEK_END);
     fread(&sale, sizeof(SalesData), 1, fpSales);
+    finalDate = sale;
     fseek(fpSales, 0, SEEK_SET);
-    yearsAnalyzed = sale.OrderDate.AAAA - yearsAnalyzed + 1;
+    yearsAnalyzed = finalDate.OrderDate.AAAA - startDate.OrderDate.AAAA + 1;
 
     int monthIndex = 0;
     while (fread(&sale, sizeof(SalesData), 1, fpSales)) {
@@ -853,27 +845,93 @@ void PrintSeasonalAnalysis(int option) {
         averageMonthlyIncome[i] = monthlyIncome[i] / yearsAnalyzed;
     }
 
+    char pantalla[24][56] = {{}};
+    memset(pantalla, ' ', sizeof(pantalla));
+    char meses[] = " ene feb mar abr may jun jul ago sep oct nov dic";
+
     printf("------------------------------------------------------------------------------------------------------------------------\n");
     printf("Company Global Electronics Retailer\n");
     printf("Valid to %s\n", __DATE__);
     printf("Title: Analysis of Seasonal Patterns in Orders and Income for Company Global Electronics Retailer\n");
-    printf("This report aims to analyze whether there are seasonal patterns or trends in order volume and Income.\n\n");
-    printf("Results:\n");
-    printf("Mes\tOrder Volume\tMonthly Avarage\n");
-     for (int i = 0; i < 12; i++) {
-        printf("%d\t%.0f\t\t\t%.2f\n", i + 1, monthlyOrders[i], averageMonthlyOrders[i]);
+    printf("This report aims to analyze whether there are seasonal patterns or trends in order volume and Income.\n");
+    printf("Methodology: Data collection: Historical order and revenue data is collected, with an appropriate time range to identify seasonal patterns.\n");
+    printf("Data preparation: The data will be organized to facilitate analysis.\n\n");
+    printf("Order Volume and Monthly income Analysis\nWhen examining the order volume and monthly income data, a direct relationship between the two is observed, making it easy to identify the increases and decreases in both income and the number of orders. This analysis is especially useful when visualizing these patterns through charts and tables, facilitating the understanding of the peaks and drops that affect both sales volume and income. Additionally, there is a noticeable stability in certain months, highlighting the seasonality of the business.");
+    printf("Order and income Peaks\nFebruary and December stand out with the highest order volumes (%.0f and %.0f orders) and incomes ($%.2f and $%.2f), due to year-end promotions and January sales.\n", monthlyOrders[1], monthlyOrders[11], monthlyIncome[1], monthlyIncome[11]);
+    printf("Months with Fewer Orders and income\nIn March and April, both orders and income drop significantly, with %.0f and %.0f orders respectively. This is due to lower demand after the holidays and the lack of promotions or incentives.\n", monthlyOrders[2], monthlyOrders[3]);
+    printf("Stability in the Intermediate Months\nMay, June, and July show steady demand, with 4,000 to 5,000 orders per month, suggesting that activity remains balanced during these intermediate months.\n");
+    printf("Monthly Averages\nThe average order volumes follow the same seasonal trend, with February and December reaching the highest peaks, while March and April show the lowest values, confirming the post-holiday drop.\n\n");
+    printf("Results:\nChart 1: Order volume per month from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
+    printf("-------------------------\n|Month\t|Order Volume\t|\t\tUSD\n-------------------------\t");
+    Graph(pantalla, monthlyOrders);
+    for (int i = 0; i < 24; i++) {
+        for (int j = 0; j < 56; j++) {
+            printf("%c", pantalla[i][j]);
+        }
+        printf("\n");
+        if (i % 2 == 0) {
+            printf("|%d\t|%.0f\t\t|\t", (i / 2) + 1, monthlyOrders[(i / 2)]);
+        } else if (i == 23) {
+            printf("-------------------------\t         %s", meses);
+        } else {
+            printf("-------------------------\t");
+        }
     }
-    Graph(monthlyOrders);
-    Graph(averageMonthlyOrders);
-    printf("\tIncome:\n");
-    printf("Mes\tTotal Income\tMonthly Avarage\n");
-    for (int i = 0; i < 12; i++) {
-        printf("%d\t%.2f\t\t%.2f\n", i + 1, monthlyIncome[i], averageMonthlyIncome[i]);
+    printf("\n\nChart 2: Income per month from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
+    printf("-------------------------\n|Month\t|Total Income\t|\t\tMillions USD\n-------------------------\t");
+    memset(pantalla, ' ', sizeof(pantalla));
+    Graph(pantalla, monthlyIncome);
+    for (int i = 0; i < 24; i++) {
+        for (int j = 0; j < 56; j++) {
+            printf("%c", pantalla[i][j]);
+        }
+        printf("\n");
+        if (i % 2 == 0) {
+            printf("|%d\t|%.2f\t|\t", (i / 2) + 1, monthlyIncome[(i / 2)]);
+        } else if (i == 23) {
+            printf("-------------------------\t         %s", meses);
+        } else {
+            printf("-------------------------\t");
+        }
     }
-    Graph(monthlyIncome);
-    Graph(averageMonthlyIncome);
-    printf("\tConclusions:\n");
-    printf("\nRecommendations:\n");
+    printf("\n\nChart 3: Monthly average order volume from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
+    printf("-------------------------\n|Month\t|Monthly Average|\t\tUSD\n-------------------------\t");
+    memset(pantalla, ' ', sizeof(pantalla));
+    Graph(pantalla, averageMonthlyOrders);
+    for (int i = 0; i < 24; i++) {
+        for (int j = 0; j < 56; j++) {
+            printf("%c", pantalla[i][j]);
+        }
+        printf("\n");
+        if (i % 2 == 0) {
+            printf("|%d\t|%.0f\t\t|\t", (i / 2) + 1, averageMonthlyOrders[(i / 2)]);
+        } else if (i == 23) {
+            printf("-------------------------\t         %s", meses);
+        } else {
+            printf("-------------------------\t");
+        }
+    }
+    printf("\n\nChart 4: Monthly average income from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
+    printf("-------------------------\n|Month\t|Total Income\t|\t\tMillions USD\n-------------------------\t");
+    memset(pantalla, ' ', sizeof(pantalla));
+    Graph(pantalla, averageMonthlyIncome);
+    for (int i = 0; i < 24; i++) {
+        for (int j = 0; j < 56; j++) {
+            printf("%c", pantalla[i][j]);
+        }
+        printf("\n");
+        if (i % 2 == 0) {
+            printf("|%d\t|%.2f\t|\t", (i / 2) + 1, monthlyIncome[(i / 2)]);
+        } else if (i == 23) {
+            printf("-------------------------\t         %s", meses);
+        } else {
+            printf("-------------------------\t");
+        }
+    }
+    printf("\nConclusions:\nClear seasonal patterns show sales peaks in December and February, followed by drops in March and April.\n");
+    printf("It is recommended to take advantage of demand peaks with marketing strategies and promotions, while managing the low-demand months with offers and discounts to maintain income flow.\n");
+    printf("\nRecommendations:\nStrengthen marketing efforts during low-demand months (March and April) with promotions and discounts.\nIncrease inventory during high-demand months (November, December, and January) to meet the sales peaks.\n");
+    printf("Reduce inventory during months of lower activity (March and April) to avoid overstocking and additional costs.\nBuild customer loyalty with reward programs that encourage purchases in low months\n");
     clock_t end = clock();
     double totalTime = ((double)(end - start)) / CLOCKS_PER_SEC;
     int minutes = (int)(totalTime / 60);
