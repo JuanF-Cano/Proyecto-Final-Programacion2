@@ -3,10 +3,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <math.h>
 
 typedef struct {
-    unsigned char DD;
     unsigned char MM;
+    unsigned char DD;
     unsigned short int AAAA;
 } date;
 
@@ -89,7 +90,7 @@ void CreateSalesTable(char fileName[]) {
         data.LineItem = (unsigned char)atoi(token);
 
         token = strtok(NULL, ",");
-        sscanf(token, "%hhu/%hhu/%hu", &data.OrderDate.DD, &data.OrderDate.MM, &data.OrderDate.AAAA);
+        sscanf(token, "%hhu/%hhu/%hu", &data.OrderDate.MM, &data.OrderDate.DD, &data.OrderDate.AAAA);
 
         token = strtok(NULL, ",");
         if (token[0] == ' ') {
@@ -97,7 +98,7 @@ void CreateSalesTable(char fileName[]) {
             data.DeliveryDate.MM = 0;
             data.DeliveryDate.AAAA = 0;
         } else {
-            sscanf(token, "%hhu/%hhu/%hu", &data.DeliveryDate.DD, &data.DeliveryDate.MM, &data.DeliveryDate.AAAA);
+            sscanf(token, "%hhu/%hhu/%hu", &data.OrderDate.MM, &data.OrderDate.DD, &data.OrderDate.AAAA);
         }
 
         token = strtok(NULL, ",");
@@ -123,7 +124,7 @@ void CreateSalesTable(char fileName[]) {
                 countRegisters++;
             }
     }
-    printf("\nRecords entered: %i", countRegisters);
+    printf("\nSales Records entered: %i", countRegisters);
     fclose(fp);fclose(fpSales);
     return;
 }
@@ -193,25 +194,32 @@ void CreateCustomersTable(char fileName[]) {
         if (strlen(token) <= 20) {
             strcpy(data.Continent, token);
         } else {counterErrors++; printf("\nError (%i): Overflow Continent: %s", counterErrors, token);}
-
-        sscanf(strtok(NULL, ","), "%hhu/%hhu/%hu", &data.Birthday.DD, &data.Birthday.MM, &data.Birthday.AAAA);
-
+            sscanf(strtok(NULL, ","), "%hhu/%hhu/%hu", &data.Birthday.MM, &data.Birthday.DD, &data.Birthday.AAAA);
         if (fwrite(&data, sizeof(data), 1, fpCustomers) != 1) {
             printf("\nError writing to file. Customers key: %i\n", data.CustomersKey);
         } else {
             countRegisters++;
         }
     }
-    printf("\nRecords entered: %i", countRegisters);
+    printf("\nCustomers Records entered: %i", countRegisters);
     fclose(fp); fclose(fpCustomers);
     return;
 }
 
 float parseToken(char **token) {
-    if (*token[0] == '"') {
+    if ((*token)[0] == '"') {
         *token = strtok(NULL, "\"");
     }
-    return (float)atof(*token);
+    char buffer[1024];
+    int j = 0;
+    for (int i = 0; (*token)[i] != '\0'; i++) {
+        if ((*token)[i] != ',') {
+            buffer[j++] = (*token)[i];
+        }
+    }
+    buffer[j] = '\0';
+
+    return (float)atof(buffer);
 }
 
 void CreateProductsTable(char fileName[]) {
@@ -293,7 +301,7 @@ void CreateProductsTable(char fileName[]) {
             countRegisters++;
         }
     }
-    printf("\nRecords entered: %i", countRegisters);
+    printf("\nProducts Records entered: %i", countRegisters);
     fclose(fp);fclose(fpProducts);
     return;
 }
@@ -333,11 +341,11 @@ void CreateStoresTable(char fileName[]) {
         token = strtok(NULL, ",");
         if (isdigit((unsigned char)token[strlen(token) - 5])) {
             data.SquareMeters = 0;
-            sscanf(token, "%hhu/%hhu/%hu", &data.OpenDate.DD, &data.OpenDate.MM, &data.OpenDate.AAAA);
+            sscanf(token, "%hhu/%hhu/%hu", &data.OpenDate.MM, &data.OpenDate.DD, &data.OpenDate.AAAA);
         } else {
             data.SquareMeters = (unsigned short int)atoi(token);
             token = strtok(NULL, ",");
-            sscanf(token, "%hhu/%hhu/%hu", &data.OpenDate.DD, &data.OpenDate.MM, &data.OpenDate.AAAA);
+            sscanf(token, "%hhu/%hhu/%hu", &data.OpenDate.MM, &data.OpenDate.DD, &data.OpenDate.AAAA);
         }
         
         if (fwrite(&data, sizeof(data), 1, fpStores) != 1) {
@@ -345,13 +353,8 @@ void CreateStoresTable(char fileName[]) {
         } else {
             countRegisters++;
         }
-
-        printf("%i\t", data.StoreKey);
-        printf("%s\t", data.Country);
-        printf("%s\t", data.State);
-        printf("%i\n", data.SquareMeters);
     }
-    printf("\nRecords entered: %i", countRegisters);
+    printf("\nStores Records entered: %i", countRegisters);
     fclose(fp); fclose(fpStores);
     return;
 }
@@ -394,7 +397,7 @@ void CreateExchangeRatesTable(char fileName[]) {
             countRegisters++;
         }
     }
-    printf("\nRecords entered: %i", countRegisters);
+    printf("\nExchanges Rates Records entered: %i", countRegisters);
     fclose(fp); fclose(fpExchangeRates);
     return;
 }
@@ -563,6 +566,12 @@ int CompareCustomerKey(const void *key1, const void *key2) {
     return (customer1->CustomersKey > customer2->CustomersKey) - (customer1->CustomersKey < customer2->CustomersKey);
 }
 
+int CompareProductKey(const void *key1, const void *key2) {
+    const ProductsData *product1 = (const ProductsData*)key1;
+    const ProductsData *product2 = (const ProductsData*)key2;
+    return (product1->ProductKey > product2->ProductKey) - (product1->ProductKey < product2->ProductKey);
+}
+
 int CompareCustomerLocation(const void *record1, const void *record2) {
     const CustomersData *customer1 = (const CustomersData*)record1;
     const CustomersData *customer2 = (const CustomersData*)record2;
@@ -579,6 +588,18 @@ int CompareCustomerLocation(const void *record1, const void *record2) {
     return result;
 }
 
+int CompareSalesDate(const void *reg1, const void *reg2) {
+    const SalesData *sale1 = (const SalesData*)reg1;
+    const SalesData *sale2 = (const SalesData*)reg2;
+    int result = sale1->OrderDate.AAAA - sale2->OrderDate.AAAA;
+    if (result == 0) {
+        result = sale1->OrderDate.MM - sale2->OrderDate.MM;
+        if (result == 0) {
+            result = sale1->OrderDate.DD - sale2->OrderDate.DD;
+        }
+    }
+    return result;
+}
 
 int BinarySearch(char fileName[], unsigned int item, size_t size, int registers, int option) {
     FILE *fp = fopen(fileName, "rb");
@@ -715,7 +736,8 @@ void PrintReport2(int option) {
     int minutes = (int)(totalTime / 60);
     int seconds = (int)(totalTime) % 60;
     printf("------------------------------------------------------------------------------------------------------------------------\n");
-    printf("\t\t\t\t\tTime used to produce this listing: %d'%d\"\n************************************************LAST LINE OF THE REPORT*************************************************\n", minutes, seconds);
+    printf("Time used to produce this listing: %d' %d\"\n", minutes, seconds);
+    printf("***************************LAST LINE OF THE REPORT***************************\n");
     printf("------------------------------------------------------------------------------------------------------------------------\n");
 
     fclose(fpProducts);
@@ -723,42 +745,173 @@ void PrintReport2(int option) {
     fclose(fpCustomers);
 }
 
+void Graph(float array[12]){
+    char pantalla[24][56] = {{}};
+    char meses[] = " ene feb mar abr may jun jul ago sep oct nov dic";
+    memset(pantalla, ' ', sizeof(pantalla));
+    double yMax = array[0];
+    if((int)yMax / 1000000 >= 1){
+        for(int i=0; i<12; i++){
+            array[i] = array[i]/1000000;
+        }
+        yMax = array[0];
+    }
+    
+    for(int i = 0; i < 12; i++){
+        if(array[i] > yMax){
+            yMax = array[i];
+        }
+    }
+    double pixelY = (fabs(yMax) == 0) ? 24 :  24.0/fabs(yMax);
+
+    for(int i= 0; i<24; i++){
+        pantalla[i][9]=179;
+    }
+    for(int i = 9; i <56; i++){
+        if(i != 9){
+            pantalla[23][i] = 196;
+        }else{
+            pantalla[23][i] = 197;
+        }
+    }
+    for(int i = 0; i< 12; i++){
+        int placeY = (int) 24.0-round(pixelY*array[i]);
+        char cadena[12] = "";
+        sprintf(cadena, "%.2f", array[i]);
+        int longitudCadena = strlen(cadena);
+        for(int j = 0; j<longitudCadena; j++){
+                pantalla[placeY][j] = cadena[j];
+        }
+        pantalla[placeY][11+(4*i)] = 'x';
+    }
+
+    printf("\n");
+    for(int i = 0; i<24; i++){
+        for(int j = 0; j<56; j++){
+            if(!pantalla[i][j]){
+                printf(" ");
+            }else{
+                printf("%c", pantalla[i][j]);
+            }
+        }
+        printf("\n");
+    }
+    printf("         %s", meses);
+}
+
+float GetProductPrice(unsigned short int productKey, int registers) {
+    FILE *fp = fopen("ProductsOrder.table", "rb");
+    if (fp == NULL) {
+        printf("Error opening file: ProductsOrder.table\n");
+        return 1.0;
+    }
+    ProductsData product;
+    fseek(fp, BinarySearch("ProductsOrder.table", productKey, sizeof(ProductsData), registers, 1) * sizeof(ProductsData), SEEK_SET);
+    fread(&product, sizeof(ProductsData), 1, fp);
+    fclose(fp);
+    return product.UnitPriceUSD;
+};
+
+void PrintSeasonalAnalysis(int option) {
+    clock_t start = clock();
+    int productsRegisters = 0;
+    if (option == 1) {
+        productsRegisters = BubbleSort("Products.table", "ProductsOrder.table", sizeof(ProductsData), CompareProductKey);
+        BubbleSort("Sales.table", "SalesOrder.table", sizeof(SalesData), CompareSalesDate);
+    } else if (option == 2)  {
+        productsRegisters = MergeSort("Products.table", "ProductsOrder.table", sizeof(ProductsData), CompareProductKey);
+        MergeSort("Sales.table", "SalesOrder.table", sizeof(SalesData), CompareSalesDate);
+    }
+    SalesData sale;
+    float monthlyOrders[12] = {0.0};
+    float monthlyIncome[12] = {0.0};
+    FILE *fpSales = fopen("SalesOrder.table", "rb");
+    if (fpSales == NULL) {
+        printf("Error opening file: Sales.table\n");
+        return;
+    }
+    int yearsAnalyzed = 0;
+    fread(&sale, sizeof(SalesData), 1, fpSales);
+    yearsAnalyzed = sale.OrderDate.AAAA;
+    fseek(fpSales, -1 * sizeof(SalesData), SEEK_END);
+    fread(&sale, sizeof(SalesData), 1, fpSales);
+    fseek(fpSales, 0, SEEK_SET);
+    yearsAnalyzed = sale.OrderDate.AAAA - yearsAnalyzed + 1;
+
+    int monthIndex = 0;
+    while (fread(&sale, sizeof(SalesData), 1, fpSales)) {
+        monthIndex = sale.OrderDate.MM - 1;
+        monthlyOrders[monthIndex] += sale.Quantity;
+        monthlyIncome[monthIndex] += sale.Quantity * GetProductPrice(sale.ProductKey, productsRegisters);
+    }
+    fclose(fpSales);
+
+    float averageMonthlyOrders[12];
+    float averageMonthlyIncome[12];
+    for (int i = 0; i < 12; i++) {
+        averageMonthlyOrders[i] = (float)monthlyOrders[i] / yearsAnalyzed;
+        averageMonthlyIncome[i] = monthlyIncome[i] / yearsAnalyzed;
+    }
+
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+    printf("Company Global Electronics Retailer\n");
+    printf("Valid to %s\n", __DATE__);
+    printf("Title: Analysis of Seasonal Patterns in Orders and Income for Company Global Electronics Retailer\n");
+    printf("This report aims to analyze whether there are seasonal patterns or trends in order volume and Income.\n\n");
+    printf("Results:\n");
+    printf("Mes\tOrder Volume\tMonthly Avarage\n");
+     for (int i = 0; i < 12; i++) {
+        printf("%d\t%.0f\t\t\t%.2f\n", i + 1, monthlyOrders[i], averageMonthlyOrders[i]);
+    }
+    Graph(monthlyOrders);
+    Graph(averageMonthlyOrders);
+    printf("\tIncome:\n");
+    printf("Mes\tTotal Income\tMonthly Avarage\n");
+    for (int i = 0; i < 12; i++) {
+        printf("%d\t%.2f\t\t%.2f\n", i + 1, monthlyIncome[i], averageMonthlyIncome[i]);
+    }
+    Graph(monthlyIncome);
+    Graph(averageMonthlyIncome);
+    printf("\tConclusions:\n");
+    printf("\nRecommendations:\n");
+    clock_t end = clock();
+    double totalTime = ((double)(end - start)) / CLOCKS_PER_SEC;
+    int minutes = (int)(totalTime / 60);
+    int seconds = (int)(totalTime) % 60;
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+    printf("Time used to produce this listing: %d' %d\"\n", minutes, seconds);
+    printf("***************************LAST LINE OF THE REPORT***************************\n");
+}
+
 int main() {
     float option = 0.0; 
     do {
         printf("\n\nCompany Global Electronics Retailer\nOptions menu\n");
         printf("0. Exit program\n1. Construction of the Database with the dataset tables\n");
-        printf("2. List of ¿What types of products does the company sell, and where are customers located?\n\t2.1 Utility bubbleSort\n\t2.2 Utility mergeSort\n");
-        printf("3. List of ¿Are there any seasonal patterns or trends for order volume or revenue?\n\t3.1 Utility bubbleSort\n\t3.2 Utility mergeSort\n");
-        printf("4. List of ¿How long is the average delivery time in days? Has that changed over time?\n\t4.1 Utility bubbleSort\n\t4.2 Utility mergeSort\n");
+        printf("2. List of %cWhat types of products does the company sell, and where are customers located?\n\t2.1 Utility bubbleSort\n\t2.2 Utility mergeSort\n", 168);
+        printf("3. List of %cAre there any seasonal patterns or trends for order volume or Income?\n\t3.1 Utility bubbleSort\n\t3.2 Utility mergeSort\n", 168);
+        printf("4. List of %cHow long is the average delivery time in days? Has that changed over time?\n\t4.1 Utility bubbleSort\n\t4.2 Utility mergeSort\n", 168);
         printf("5. List of sales order by \"Customer Name\"+\"Order Date\"+\"ProductKey\";\n\t5.1 Utility bubbleSort\n\t5.2 Utility mergeSort\nWhat is your option: ");
         scanf("%f", &option);
         option = (option * 10);
 
         if (option == 10) {
-            char file[30];
-            printf("Enter the file name: ");
-            scanf("%s", file);
-            if (strcmp(file, "Sales.dat") == 0) {
-                CreateSalesTable(file);
-            } else if (strcmp(file, "Customers.dat") == 0) {
-                CreateCustomersTable(file);
-            } else if (strcmp(file, "Stores.dat") == 0) {
-                CreateStoresTable(file);
-            } else if (strcmp(file, "Exchange_Rates.dat") == 0) {
-                CreateExchangeRatesTable(file);
-            } else if (strcmp(file, "Products.dat") == 0) {
-                CreateProductsTable(file);
-            } else {
-                printf("File not found.");
-            }
+            CreateSalesTable("Sales.dat");
+            CreateCustomersTable("Customers.dat");
+            CreateStoresTable("Stores.dat");
+            CreateExchangeRatesTable("Exchange_Rates.dat");
+            CreateProductsTable("Products.dat");
         } else if (option == 21) {
             PrintReport2(1);
         } else if (option == 22) {
             PrintReport2(2);
-        } else {
+        } else if (option == 31) {
+            PrintSeasonalAnalysis(1);  
+        } else if (option == 32) {
+            PrintSeasonalAnalysis(2);  
+        } else if (option != 0) {
             printf("\nInvalid option\n");
-        }
+        } 
     } while (option != 0);
 
     return 0;
