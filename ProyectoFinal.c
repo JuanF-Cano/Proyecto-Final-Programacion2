@@ -750,12 +750,12 @@ void Graph(char pantalla[24][56], float array[12]){
     for (int i = 0; i < 12; i++) {
         arrAux[i] = array[i];
     }
-    double yMax = arrAux[0];
+    double yMax = arrAux[0]; 
     if((int)yMax / 1000000 >= 1){
         for(int i = 0; i < 12; i++){
             arrAux[i] = arrAux[i] / 1000000;
         }
-        yMax = arrAux[0];
+        yMax = arrAux[0]; 
     }
     
     for(int i = 0; i < 12; i++){
@@ -763,7 +763,7 @@ void Graph(char pantalla[24][56], float array[12]){
             yMax = arrAux[i];
         }
     }
-    double pixelY = (fabs(yMax) == 0) ? 24 :  24.0 / fabs(yMax);
+    double scaleY = 24.0 / fabs(yMax);
 
     for(int i = 0; i < 24; i++){
         pantalla[i][9] = 179;
@@ -776,7 +776,7 @@ void Graph(char pantalla[24][56], float array[12]){
         }
     }
     for(int i = 0; i < 12; i++){
-        int placeY = (int) 24.0-round(pixelY * arrAux[i]);
+        int placeY = (int) 24.0 - round(scaleY * arrAux[i]);
         char cadena[12] = "";
         sprintf(cadena, "%.2f", arrAux[i]);
         int longitudCadena = strlen(cadena);
@@ -785,7 +785,6 @@ void Graph(char pantalla[24][56], float array[12]){
         }
         pantalla[placeY][11 + (4 * i)] = 'x';
     }
-
     return;
 }
 
@@ -800,7 +799,7 @@ float GetProductPrice(unsigned short int productKey, int registers) {
     fread(&product, sizeof(ProductsData), 1, fp);
     fclose(fp);
     return product.UnitPriceUSD;
-};
+}
 
 void PrintSeasonalAnalysis(int option) {
     clock_t start = clock();
@@ -841,7 +840,7 @@ void PrintSeasonalAnalysis(int option) {
     float averageMonthlyOrders[12];
     float averageMonthlyIncome[12];
     for (int i = 0; i < 12; i++) {
-        averageMonthlyOrders[i] = (float)monthlyOrders[i] / yearsAnalyzed;
+        averageMonthlyOrders[i] = monthlyOrders[i] / yearsAnalyzed;
         averageMonthlyIncome[i] = monthlyIncome[i] / yearsAnalyzed;
     }
 
@@ -862,7 +861,7 @@ void PrintSeasonalAnalysis(int option) {
     printf("Stability in the Intermediate Months\nMay, June, and July show steady demand, with 4,000 to 5,000 orders per month, suggesting that activity remains balanced during these intermediate months.\n");
     printf("Monthly Averages\nThe average order volumes follow the same seasonal trend, with February and December reaching the highest peaks, while March and April show the lowest values, confirming the post-holiday drop.\n\n");
     printf("Results:\nChart 1: Order volume per month from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
-    printf("-------------------------\n|Month\t|Order Volume\t|\t\tUSD\n-------------------------\t");
+    printf("-------------------------\n|Month\t|Order Volume\n-------------------------\t");
     Graph(pantalla, monthlyOrders);
     for (int i = 0; i < 24; i++) {
         for (int j = 0; j < 56; j++) {
@@ -895,7 +894,7 @@ void PrintSeasonalAnalysis(int option) {
         }
     }
     printf("\n\nChart 3: Monthly average order volume from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
-    printf("-------------------------\n|Month\t|Monthly Average|\t\tUSD\n-------------------------\t");
+    printf("-------------------------\n|Month\t|Monthly Average|\n-------------------------\t");
     memset(pantalla, ' ', sizeof(pantalla));
     Graph(pantalla, averageMonthlyOrders);
     for (int i = 0; i < 24; i++) {
@@ -921,7 +920,7 @@ void PrintSeasonalAnalysis(int option) {
         }
         printf("\n");
         if (i % 2 == 0) {
-            printf("|%d\t|%.2f\t|\t", (i / 2) + 1, monthlyIncome[(i / 2)]);
+            printf("|%d\t|%.2f\t|\t", (i / 2) + 1, averageMonthlyIncome[(i / 2)]);
         } else if (i == 23) {
             printf("-------------------------\t         %s", meses);
         } else {
@@ -939,6 +938,76 @@ void PrintSeasonalAnalysis(int option) {
     printf("------------------------------------------------------------------------------------------------------------------------\n");
     printf("Time used to produce this listing: %d' %d\"\n", minutes, seconds);
     printf("***************************LAST LINE OF THE REPORT***************************\n");
+}
+
+void PrintDeliveryTimeAnalysis() {
+    clock_t start = clock();
+    int salesRegisters = 0;
+    FILE *fpSales = fopen("SalesOrder.Table", "rb");
+    fseek(fpSales, 0, SEEK_END);
+    salesRegisters = ftell(fpSales) / sizeof(SalesData);
+    fseek(fpSales, 0, SEEK_SET);
+    FILE *fpAux = fopen("auxiliarSales", "wb+");
+    SalesData sale;
+    int deliveredSales = 0;
+    int averageDeliveryTime[6][2] = {0};
+
+    for (int i = 0, temporalIndex = 0; i < salesRegisters; i += 1) {
+        fseek(fpSales, i * sizeof(SalesData), SEEK_SET);
+        fread(&sale, sizeof(SalesData), 1, fpSales);
+
+        if (sale.StoreKey == 0 && sale.DeliveryDate.AAAA != 0 && sale.DeliveryDate.MM != 0 && sale.DeliveryDate.DD != 0) {
+            fseek(fpAux, sizeof(SalesData) * temporalIndex, SEEK_SET);
+            fwrite(&sale, sizeof(SalesData), 1, fpAux);
+            temporalIndex++;
+            deliveredSales++;
+        }
+    }
+
+    for (int i = 0; i < deliveredSales; i += 1) {
+        fseek(fpAux, sizeof(SalesData) * i, SEEK_SET);
+        fread(&sale, sizeof(SalesData), 1, fpAux);
+
+        if (sale.DeliveryDate.AAAA != 0 && sale.DeliveryDate.MM != 0 && sale.DeliveryDate.DD != 0) {
+            int year = (int)sale.DeliveryDate.AAAA % 2016;
+            long int orderDate = 0, deliveryDate = 0, deliveryTimeInDays = 0;
+            orderDate = sale.OrderDate.AAAA * 360 + sale.OrderDate.MM * 30 + sale.OrderDate.DD;
+            deliveryDate = sale.DeliveryDate.AAAA * 360 + sale.DeliveryDate.MM * 30 + sale.DeliveryDate.DD;
+            deliveryTimeInDays = deliveryDate - orderDate;
+            averageDeliveryTime[year][0] += deliveryTimeInDays;
+            averageDeliveryTime[year][1] += 1;
+        
+        } else {
+            printf("\t\t\t\t\tOrderNumber: %li has an invalid DeliveryDate.\n", sale.OrderNumber);
+        }
+    }
+
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+    printf("Company Global Electronics Retailer\nValid to %s\n", __DATE__);
+    printf("Title: Analysis of delivery time in days for Company Global Electronics Retailer\n");
+    printf("\nOver the years analyzed, a progressive decrease in delivery times is observed, suggesting that both\nlocal and online stores have managed to improve their delivery efficiency over time.\n\n");
+    printf("Once the data was sorted by delivery date, the average delivery time in days was calculated, which\nrefers to the average number of days between the order date and the delivery date. This calculation\nis crucial to understand the efficiency of delivery times based on the provided data.\n\n");
+    printf("It is important to note that, in the analyzed dataset, there are no records of physical stores with a\ndelivery date. Therefore, the comparison was made only between online store that\ndo have valid delivery date records.\n\n");
+    printf("Results:\n");
+    printf("After analyzing the data, the following results were obtained for the average delivery time in days:\n\n");
+    for(int i = 0; i < 6; i += 1){
+        printf("\n\tAverage delivery time in: %i:\t%.2f days\n", i + 2016, (1.0 * averageDeliveryTime[i][0]) / (1.0 * averageDeliveryTime[i][1]));
+    }
+    printf("\n\nOver the years analyzed, a progressive decrease in delivery times is observed, suggesting that \nthe online store has managed to improve its delivery efficiency over time.\n\n");
+    printf("Conclusion:\n\n");
+    printf("In the provided dataset, there are no records for physical stores with delivery dates, so the analysis\nhas been limited to online stores. The calculation of average delivery time shows a trend of\nimprovement over the years, with a significant reduction in average delivery time, from 7.25 days in\n2016 to 3.76 days in 2021.\n\n");
+    printf("This analysis highlights how, over time, delivery processes have improved, which may reflect\noptimization in logistical systems or operational efficiency in both online and local stores.\n\n");
+    fclose(fpAux);
+    fclose(fpSales);
+    clock_t end = clock();
+    double totalTime = ((double)(end - start)) / CLOCKS_PER_SEC;
+    int minutes = (int)(totalTime / 60);
+    int seconds = (int)(totalTime) % 60;
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+    printf("Time used to produce this listing: %d' %d\"\n", minutes, seconds);
+    printf("***************************LAST LINE OF THE REPORT***************************\n");
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+
 }
 
 int main() {
@@ -967,6 +1036,12 @@ int main() {
             PrintSeasonalAnalysis(1);  
         } else if (option == 32) {
             PrintSeasonalAnalysis(2);  
+        } else if (option == 41 || option == 42) {
+            PrintDeliveryTimeAnalysis();
+        } else if (option == 51) {
+            printf("Si");
+        } else if (option == 52) {
+            printf("Si con dos i");
         } else if (option != 0) {
             printf("\nInvalid option\n");
         } 
