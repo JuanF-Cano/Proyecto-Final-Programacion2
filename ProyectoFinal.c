@@ -1,3 +1,26 @@
+/*
+- Fecha de publicación: 22/11/2024
+- Hora de publicación: 2:52 AM
+- Versión de su código: 5.2
+- Autor. Ing(c) Juan Fernando Cano Duque
+- Nombre del lenguaje utilizado: C
+- Versión del lenguaje utilizado: C11
+- Versión del compilador utilizado: MinGW.org GCC-6.3.0-1
+- Versión del S.O sobre el que compilo y probo su código: Windows 11 Home Single Language, 23H2
+- Presentado a: Doctor Ricardo Moreno Laverde 
+- Universidad Tecnológica de Pereira 
+- Programa de Ingeniería de Sistemas y Computación 
+- Asignatura IS284 Programación II 
+
+- Descrptivo: El programa recibe un dataset cn registros de una empresa y genera informes utilizando busquda binaria y ordenamiento
+              de archivos por Bubble Sort y Merge Sort
+    
+- Salvedades:
+  No se garantiza su funcionamiento en otras versiones del sistema operativo, en otros sistemas operativos, en otras versiones del 
+  lenguaje, del compilador u otro compilador.
+  Primero se debe ejecutar la opcion 1 del menu, creando las tablas, asi mismo, esta debe de ejecutarse antes de cualquier otra opcion
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -67,7 +90,7 @@ typedef int (*Compare)(const void*, const void*);
 
 void CreateSalesTable(char fileName[]) {
     FILE *fp = fopen(fileName, "r");
-    FILE *fpSales = fopen("Sales.table", "ab");
+    FILE *fpSales = fopen("Sales.table", "wb");
     
     if (fp == NULL) {
         printf("Error opening file: %s\n", fileName);
@@ -131,7 +154,7 @@ void CreateSalesTable(char fileName[]) {
 
 void CreateCustomersTable(char fileName[]) {
     FILE *fp = fopen(fileName, "r");
-    FILE *fpCustomers = fopen("Customers.table", "ab");
+    FILE *fpCustomers = fopen("Customers.table", "wb");
 
     if (fp == NULL) {
         printf("Error opening file: %s\n", fileName);
@@ -224,7 +247,7 @@ float parseToken(char **token) {
 
 void CreateProductsTable(char fileName[]) {
     FILE *fp = fopen(fileName, "r");
-    FILE *fpProducts = fopen("Products.table", "ab");
+    FILE *fpProducts = fopen("Products.table", "wb");
 
     if (fp == NULL) {
         printf("Error opening file: %s\n", fileName);
@@ -308,7 +331,7 @@ void CreateProductsTable(char fileName[]) {
 
 void CreateStoresTable(char fileName[]) {
     FILE *fp = fopen(fileName, "r");
-    FILE *fpStores = fopen("Stores.table", "ab");
+    FILE *fpStores = fopen("Stores.table", "wb");
 
     if (fp == NULL) {
         printf("Error opening file: %s\n", fileName);
@@ -361,7 +384,7 @@ void CreateStoresTable(char fileName[]) {
 
 void CreateExchangeRatesTable(char fileName[]) {
     FILE *fp = fopen(fileName, "r");
-    FILE *fpExchangeRates = fopen("ExchangeRates.table", "ab");
+    FILE *fpExchangeRates = fopen("ExchangeRates.table", "wb");
 
     if (fp == NULL) {
         printf("Error opening file: %s\n", fileName);
@@ -554,10 +577,22 @@ int CompareProductName(const void *product1, const void *product2) {
     return strcmp(productA->ProductName, productB->ProductName);
 }
 
+int CompareCustomerName(const void *customer1, const void *customer2) {
+    const CustomersData *customerA = (const CustomersData*)customer1;
+    const CustomersData *customerB = (const CustomersData*)customer2;
+    return strcmp(customerA->Name, customerB->Name);
+}
+
 int CompareSaleByProductKey(const void *register1, const void *register2) {
     const SalesData *sale1 = (const SalesData*)register1;
     const SalesData *sale2 = (const SalesData*)register2;
     return (sale1->ProductKey > sale2->ProductKey) - (sale1->ProductKey < sale2->ProductKey);
+}
+
+int CompareSaleByCustomerKey(const void *register1, const void *register2) {
+    const SalesData *sale1 = (const SalesData*)register1;
+    const SalesData *sale2 = (const SalesData*)register2;
+    return (sale1->CustomerKey > sale2->CustomerKey) - (sale1->CustomerKey < sale2->CustomerKey);
 }
 
 int CompareCustomerKey(const void *key1, const void *key2) {
@@ -601,6 +636,16 @@ int CompareSalesDate(const void *reg1, const void *reg2) {
     return result;
 }
 
+int CompareSalesByOrderNumber(const void *a, const void *b){
+    const SalesData *saleA = (const SalesData*)a;
+    const SalesData *saleB = (const SalesData*)b;
+    int comparation = saleA->OrderNumber - saleB->OrderNumber;
+    if (comparation == 0) {
+        comparation = (int)(saleA->ProductKey - saleB->ProductKey);
+    }
+    return comparation;
+}
+
 int BinarySearch(char fileName[], unsigned int item, size_t size, int registers, int option) {
     FILE *fp = fopen(fileName, "rb");
     if (fp == NULL) {
@@ -627,6 +672,9 @@ int BinarySearch(char fileName[], unsigned int item, size_t size, int registers,
         } else if (option == 3) {
             CustomersData *customer = (CustomersData *)record;
             key = customer->CustomersKey;
+        } else if (option == 4) {
+            SalesData *sale = (SalesData *)record;
+            key = sale->CustomerKey;
         }
         if (key == item) {
             result = medium;
@@ -643,6 +691,60 @@ int BinarySearch(char fileName[], unsigned int item, size_t size, int registers,
     return result;
 }
 
+int BinarySearchExchangeDate(char fileName[], SalesData recordSale) {
+    unsigned int start = 0, middle = 0, end = 0, sizeOfRecord = sizeof(ExchangeRates);
+    int result = 0;
+    ExchangeRates record;
+    FILE *fp = fopen(fileName, "rb");
+    fseek(fp, 0 ,SEEK_END);
+    end = ( ftell(fp) / sizeOfRecord ) - 1;
+    while (start <= end) {
+        middle = start + ((end - start) / 2);
+        fseek(fp, middle * sizeOfRecord, SEEK_SET);
+        fread(&record, sizeOfRecord, 1, fp);
+        char key[11] = "";
+        strcpy(key, record.Date);
+        int currentMonth = 0, currentDay = 0, currentYear = 0;
+        int month = 0, day = 0, year = 0;
+        month = recordSale.OrderDate.MM;
+        day = recordSale.OrderDate.DD;
+        year = recordSale.OrderDate.AAAA;
+
+        sscanf(key, "%d/%d/%d", &currentMonth, &currentDay, &currentYear);
+        if(currentYear == year){
+            if(currentMonth == month){
+                if(currentDay == day){
+                    result = middle;
+                    start = end + 1;
+                } else if(currentDay > day){
+                    end = middle - 1;
+                } else {
+                    start = middle + 1;
+                }
+            } else if(currentMonth > month){
+                end = middle - 1;
+            } else {
+                start = middle + 1;
+            }
+        } else if(currentYear > year){
+            end = middle - 1;
+        } else {
+            start = middle + 1;
+        }
+    }
+	return result;
+}
+
+
+void ShowDateTime() {
+    time_t current_time = time(NULL);
+    struct tm *local_time = localtime(&current_time);
+    char formattedTime[50] = "";
+
+    strftime(formattedTime, 50, "Valid to %Y-%b-%d at %H:%M hours", local_time);
+    printf("%s\n", formattedTime);
+
+}
 
 void PrintReport2(int option) {
     clock_t start = clock();
@@ -681,9 +783,11 @@ void PrintReport2(int option) {
     CustomersData customer;
     int result = 0;
     printf("------------------------------------------------------------------------------------------------------------------------\n");
-    printf("Company Global Electronics Retailer\nValid to 2024-May-06 at 14:22 hours\nProducts list ordered by ProductName + Continent + Country + Sate + City\n");
+    printf("Company Global Electronics Retailer\nValid to");
+    ShowDateTime();
+    printf("\nProducts list ordered by ProductName + Continent + Country + Sate + City\n");
 
-    while (fread(&product, sizeof(ProductsData), 1, fpProducts) == 1) {
+    while (fread(&product, sizeof(ProductsData), 1, fpProducts)) {
         FILE *fpAux = fopen("CustomersAux.table", "wb");
         if (fpAux == NULL) {
             printf("Error opening file: CustomersAux.table.\n");
@@ -745,7 +849,7 @@ void PrintReport2(int option) {
     fclose(fpCustomers);
 }
 
-void Graph(char pantalla[24][56], float array[12]){
+void Graph(char screen[24][56], float array[12]){
     float arrAux[12] = {0.0};
     for (int i = 0; i < 12; i++) {
         arrAux[i] = array[i];
@@ -766,24 +870,24 @@ void Graph(char pantalla[24][56], float array[12]){
     double scaleY = 24.0 / fabs(yMax);
 
     for(int i = 0; i < 24; i++){
-        pantalla[i][9] = 179;
+        screen[i][9] = 179;
     }
     for(int i = 9; i < 56; i++){
         if(i != 9){
-            pantalla[23][i] = 196;
+            screen[23][i] = 196;
         }else{
-            pantalla[23][i] = 192;
+            screen[23][i] = 192;
         }
     }
     for(int i = 0; i < 12; i++){
         int placeY = (int) 24.0 - round(scaleY * arrAux[i]);
-        char cadena[12] = "";
-        sprintf(cadena, "%.2f", arrAux[i]);
-        int longitudCadena = strlen(cadena);
-        for(int j = 0; j < longitudCadena; j++){
-                pantalla[placeY][j] = cadena[j];
+        char str[12] = "";
+        sprintf(str, "%.2f", arrAux[i]);
+        int length = strlen(str);
+        for(int j = 0; j < length; j++){
+                screen[placeY][j] = str[j];
         }
-        pantalla[placeY][11 + (4 * i)] = 'x';
+        screen[placeY][11 + (4 * i)] = 'x';
     }
     return;
 }
@@ -844,13 +948,14 @@ void PrintSeasonalAnalysis(int option) {
         averageMonthlyIncome[i] = monthlyIncome[i] / yearsAnalyzed;
     }
 
-    char pantalla[24][56] = {{}};
-    memset(pantalla, ' ', sizeof(pantalla));
+    char screen[24][56] = {{}};
+    memset(screen, ' ', sizeof(screen));
     char meses[] = " ene feb mar abr may jun jul ago sep oct nov dic";
 
     printf("------------------------------------------------------------------------------------------------------------------------\n");
     printf("Company Global Electronics Retailer\n");
-    printf("Valid to %s\n", __DATE__);
+    printf("Valid to ");
+    ShowDateTime();
     printf("Title: Analysis of Seasonal Patterns in Orders and Income for Company Global Electronics Retailer\n");
     printf("This report aims to analyze whether there are seasonal patterns or trends in order volume and Income.\n");
     printf("Methodology: Data collection: Historical order and revenue data is collected, with an appropriate time range to identify seasonal patterns.\n");
@@ -862,10 +967,10 @@ void PrintSeasonalAnalysis(int option) {
     printf("Monthly Averages\nThe average order volumes follow the same seasonal trend, with February and December reaching the highest peaks, while March and April show the lowest values, confirming the post-holiday drop.\n\n");
     printf("Results:\nChart 1: Order volume per month from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
     printf("-------------------------\n|Month\t|Order Volume\n-------------------------\t");
-    Graph(pantalla, monthlyOrders);
+    Graph(screen, monthlyOrders);
     for (int i = 0; i < 24; i++) {
         for (int j = 0; j < 56; j++) {
-            printf("%c", pantalla[i][j]);
+            printf("%c", screen[i][j]);
         }
         printf("\n");
         if (i % 2 == 0) {
@@ -878,11 +983,11 @@ void PrintSeasonalAnalysis(int option) {
     }
     printf("\n\nChart 2: Income per month from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
     printf("-------------------------\n|Month\t|Total Income\t|\t\tMillions USD\n-------------------------\t");
-    memset(pantalla, ' ', sizeof(pantalla));
-    Graph(pantalla, monthlyIncome);
+    memset(screen, ' ', sizeof(screen));
+    Graph(screen, monthlyIncome);
     for (int i = 0; i < 24; i++) {
         for (int j = 0; j < 56; j++) {
-            printf("%c", pantalla[i][j]);
+            printf("%c", screen[i][j]);
         }
         printf("\n");
         if (i % 2 == 0) {
@@ -895,11 +1000,11 @@ void PrintSeasonalAnalysis(int option) {
     }
     printf("\n\nChart 3: Monthly average order volume from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
     printf("-------------------------\n|Month\t|Monthly Average|\n-------------------------\t");
-    memset(pantalla, ' ', sizeof(pantalla));
-    Graph(pantalla, averageMonthlyOrders);
+    memset(screen, ' ', sizeof(screen));
+    Graph(screen, averageMonthlyOrders);
     for (int i = 0; i < 24; i++) {
         for (int j = 0; j < 56; j++) {
-            printf("%c", pantalla[i][j]);
+            printf("%c", screen[i][j]);
         }
         printf("\n");
         if (i % 2 == 0) {
@@ -912,11 +1017,11 @@ void PrintSeasonalAnalysis(int option) {
     }
     printf("\n\nChart 4: Monthly average income from %i/%i/%i to %i/%i/%i\n", startDate.OrderDate.MM, startDate.OrderDate.DD, startDate.OrderDate.AAAA, finalDate.OrderDate.MM, finalDate.OrderDate.DD, finalDate.OrderDate.AAAA);
     printf("-------------------------\n|Month\t|Total Income\t|\t\tMillions USD\n-------------------------\t");
-    memset(pantalla, ' ', sizeof(pantalla));
-    Graph(pantalla, averageMonthlyIncome);
+    memset(screen, ' ', sizeof(screen));
+    Graph(screen, averageMonthlyIncome);
     for (int i = 0; i < 24; i++) {
         for (int j = 0; j < 56; j++) {
-            printf("%c", pantalla[i][j]);
+            printf("%c", screen[i][j]);
         }
         printf("\n");
         if (i % 2 == 0) {
@@ -983,8 +1088,9 @@ void PrintDeliveryTimeAnalysis() {
     }
 
     printf("------------------------------------------------------------------------------------------------------------------------\n");
-    printf("Company Global Electronics Retailer\nValid to %s\n", __DATE__);
-    printf("Title: Analysis of delivery time in days for Company Global Electronics Retailer\n");
+    printf("Company Global Electronics Retailer\nValid to ");
+    ShowDateTime();
+    printf("\nTitle: Analysis of delivery time in days for Company Global Electronics Retailer\n");
     printf("\nOver the years analyzed, a progressive decrease in delivery times is observed, suggesting that both\nlocal and online stores have managed to improve their delivery efficiency over time.\n\n");
     printf("Once the data was sorted by delivery date, the average delivery time in days was calculated, which\nrefers to the average number of days between the order date and the delivery date. This calculation\nis crucial to understand the efficiency of delivery times based on the provided data.\n\n");
     printf("It is important to note that, in the analyzed dataset, there are no records of physical stores with a\ndelivery date. Therefore, the comparison was made only between online store that\ndo have valid delivery date records.\n\n");
@@ -1008,6 +1114,234 @@ void PrintDeliveryTimeAnalysis() {
     printf("***************************LAST LINE OF THE REPORT***************************\n");
     printf("------------------------------------------------------------------------------------------------------------------------\n");
 
+}
+
+void PrintReport5(int typeofSort){
+    clock_t start = clock();
+    int customersRegisters = 15265, salesRegisters = 62884, productsRegisters = 2517;
+    /* if (typeofSort == 1) {
+        customersRegisters = BubbleSort("Customers.table", "CustomersOrder.table", sizeof(CustomersData), CompareCustomerName);
+        productsRegisters = BubbleSort("Products.table", "ProductsOrder.table", sizeof(ProductsData), CompareProductKey);
+        salesRegisters = BubbleSort("Sales.table", "SalesOrder.table", sizeof(SalesData), CompareSaleByCustomerKey);
+    } else if (typeofSort == 2) {
+        customersRegisters = MergeSort("Customers.table", "CustomersOrder.table", sizeof(CustomersData), CompareCustomerName);
+        productsRegisters = MergeSort("Products.table", "ProductsOrder.table", sizeof(ProductsData), CompareProductKey);
+        salesRegisters = MergeSort("Sales.table", "SalesOrder.table", sizeof(SalesData), CompareSaleByCustomerKey);
+    } */
+
+    printf("\n---------------------------------------------------------------------------------------");
+    printf("\nCompany Global Electronics Retailer\n");
+    printf("Customer list ordered by Customer name + order date for sale + ProductKey\n");
+    FILE *fpSales = fopen("SalesOrder.table", "rb");
+    FILE *fpCustomers = fopen("CustomersOrder.table", "rb");
+    FILE *fpProducts = fopen("ProductsOrder.table", "rb");
+	SalesData recordSale;				//Used to store a record of SalesTable and get its information
+	CustomersData recordCustomer;		//Used to store a record of CustomersTable and store it temporarely in TemporalFileOption2
+	ExchangeRates recordExchange; 
+	
+	FILE *fpExchangeRates = NULL;
+	FILE *fpTemporalSales = NULL;
+
+    char customerName[40] = ""; 		//Used to store the ProductName of each Product in ProductsTable
+	unsigned int customerKey = 0; 						//Used to store the ProductKey of each Product in ProductTable
+
+    for(int i = 0; i < customersRegisters && i < 100; i++){
+        fseek(fpCustomers, sizeof(CustomersData) * i, SEEK_SET);
+    	fread(&recordCustomer, sizeof(CustomersData), 1, fpCustomers);
+
+        strcpy(customerName, recordCustomer.Name);
+        printf("\nCustomer name: %-40s", customerName);
+
+        customerKey = recordCustomer.CustomersKey;
+        int positionSales = BinarySearch("SalesOrder.table", customerKey, sizeof(SalesData), salesRegisters, 4);
+        if(positionSales == -1){
+            printf(" - No purchases reported\n");
+        } else {
+			fpTemporalSales = fopen("TemporalFileSalesOption5", "wb+");
+			fpExchangeRates = fopen("ExchangeRates.tables", "wb+");
+
+			if(fpTemporalSales == NULL){
+				printf("Error abiendo el temporal de sales\n");
+				return;
+			}
+			if(fpExchangeRates == NULL){
+				printf("Error abriendo el archivo de exchange\n");
+				return;
+			}
+
+            fseek(fpSales, (positionSales - 1) * sizeof(SalesData), SEEK_SET);
+            fread(&recordSale, sizeof(SalesData), 1, fpSales);
+
+            for( int i = positionSales - 1; i >= 0 && customerKey == recordSale.CustomerKey; i -= 1){
+				//Reading of the previous record in sales to verify if its the first one with the currenr CustomerKey
+    	    	fseek(fpSales, sizeof(SalesData) * (i - 1), SEEK_SET);
+    	    	fread(&recordSale, sizeof(SalesData), 1, fpSales);
+
+    	    	positionSales = i; //Changing positionSales to be the index of first record in sales with the current CustomerKey
+    	    }
+            fseek(fpSales, positionSales * sizeof(SalesData), SEEK_SET);
+            fread(&recordSale, sizeof(SalesData), 1, fpSales);
+
+            int numOfOrders = 0, totalNumOfPurchases = 0;
+			long orderNumber = recordSale.OrderNumber;
+            for(int index = positionSales, i = 0; recordSale.CustomerKey == customerKey && index < salesRegisters; index++, i++) {
+				//printf("\norder number: %li, order date: %hu/%d/%d, productKey: %d, quantity: %d, currency code: %s\n", recordSale.OrderNumber, recordSale.OrderDate.AAAA, recordSale.OrderDate.MM, recordSale.OrderDate.DD, recordSale.ProductKey, recordSale.Quantity, recordSale.CurrencyCode);
+                fseek(fpTemporalSales, i * sizeof(SalesData), SEEK_SET);
+				fwrite(&recordSale, sizeof(SalesData), 1, fpTemporalSales);
+				totalNumOfPurchases++;
+                fseek(fpSales, (index + 1) * sizeof(SalesData), SEEK_SET);
+                fread(&recordSale, sizeof(SalesData), 1, fpSales);
+				if(orderNumber != recordSale.OrderNumber){
+					numOfOrders++;
+					orderNumber = recordSale.OrderNumber;
+				}
+            }
+
+
+			if(typeofSort == 1){
+				BubbleSort("TemporalFileSalesOption5", "TemporalSalesOrder", sizeof(SalesData), CompareSalesByOrderNumber);
+			} else if(typeofSort == 2){
+				MergeSort("TemporalFileSalesOption5", "TemporalSalesOrder", sizeof(SalesData), CompareSalesByOrderNumber);
+			}			
+			SalesData tempRecordSale1, tempRecordSale2;
+
+			fseek(fpSales, positionSales * sizeof(SalesData), SEEK_SET);
+            fread(&recordSale, sizeof(SalesData), 1, fpSales);
+			
+			int orderIndex = 0; 			// Inicializar el índice de órdenes
+			float totalValue = 0.0;      	// Total acumulado para todas las órdenes
+
+			for (int order = 0; order < numOfOrders; order++) {
+			    // Leer el primer registro de la orden actual
+			    fseek(fpTemporalSales, sizeof(SalesData) * orderIndex, SEEK_SET);
+			    fread(&tempRecordSale1, sizeof(SalesData), 1, fpTemporalSales);
+
+			    // Leer el siguiente registro para comparación
+			    fseek(fpTemporalSales, sizeof(SalesData) * (orderIndex + 1), SEEK_SET);
+			    fread(&tempRecordSale2, sizeof(SalesData), 1, fpTemporalSales);
+
+			    float exchange = -1.0;
+
+				// Buscar el tipo de cambio para esta orden
+				int positionExchange = BinarySearchExchangeDate("ExchangeRates.table", tempRecordSale1);
+				if (positionExchange != -1){
+					ExchangeRates staticExchangeRecord;
+					fseek(fpExchangeRates, sizeof(ExchangeRates) * positionExchange, SEEK_SET);
+					fread(&staticExchangeRecord, sizeof(ExchangeRates), 1, fpExchangeRates);
+					int index = positionExchange;
+					if (strcmp("USD", staticExchangeRecord.Currency) != 0){
+						fseek(fpExchangeRates, sizeof(ExchangeRates) * positionExchange, SEEK_SET);
+						fread(&recordExchange, sizeof(ExchangeRates), 1, fpExchangeRates);
+						for (; strcmp("USD", recordExchange.Currency) != 0 && index > 0; index--){
+							fseek(fpExchangeRates, sizeof(ExchangeRates) * index, SEEK_SET);
+							fread(&recordExchange, sizeof(ExchangeRates), 1, fpExchangeRates);
+						}
+						index++;
+					}
+
+					FILE *fpTemporalExchange = tmpfile();
+					for (int i = 0; i < 5; i++, index++){
+						fseek(fpExchangeRates, sizeof(ExchangeRates) * index, SEEK_SET);
+						fread(&recordExchange, sizeof(ExchangeRates), 1, fpExchangeRates);
+						fseek(fpTemporalExchange, sizeof(ExchangeRates) * i, SEEK_SET);
+						fwrite(&recordExchange, sizeof(ExchangeRates), 1, fpTemporalExchange);
+					}
+
+					int indexTemoralExchange = -1;
+					if (tempRecordSale1.CurrencyCode[0] == 'U'){
+						indexTemoralExchange = 0;
+					}
+					else if (tempRecordSale1.CurrencyCode[0] == 'C'){
+						indexTemoralExchange = 1;
+					}
+					else if (tempRecordSale1.CurrencyCode[0] == 'A'){
+						indexTemoralExchange = 2;
+					}
+					else if (tempRecordSale1.CurrencyCode[0] == 'E'){
+						indexTemoralExchange = 3;
+					}
+					else if (tempRecordSale1.CurrencyCode[0] == 'G'){
+						indexTemoralExchange = 4;
+					}
+					//printf ("\n\t indextemporal : %i" , indexTemoralExchange);
+					fseek(fpTemporalExchange, sizeof(ExchangeRates) * indexTemoralExchange, SEEK_SET);
+					fread(&recordExchange, sizeof(ExchangeRates), 1, fpTemporalExchange);
+                
+					exchange = recordExchange.Exchange;
+                   
+					fclose(fpTemporalExchange);
+				}
+
+			    // Mostrar encabezado de la orden
+			    printf("\nOrder date: %hu/%u/%u\tOrder Number: %li\n", 
+			           tempRecordSale1.OrderDate.AAAA, tempRecordSale1.OrderDate.MM, tempRecordSale1.OrderDate.DD, 
+			           tempRecordSale1.OrderNumber);
+				printf("%-17s%-90s%-15s%s %s", "ProductKey", "ProductName", "Quantity", "Value", tempRecordSale1.CurrencyCode);
+			    printf("\n_________________________________________________________________________________________________________________________________________________________\n");
+
+			    float subTotal = 0.0;
+			    ProductsData tempProductRecord;
+
+			    // Iterar sobre todos los productos de la misma orden
+			    while (orderIndex < totalNumOfPurchases - 1 && tempRecordSale1.OrderNumber == tempRecordSale2.OrderNumber) {
+			        unsigned int productKey = tempRecordSale1.ProductKey;
+
+			        // Buscar el producto en el archivo de productos
+			        int positionProducts = BinarySearch("ProductsOrder.table", productKey, sizeof(ProductsData), productsRegisters, 1);
+			        if (positionProducts != -1) {
+			            fseek(fpProducts, sizeof(ProductsData) * positionProducts, SEEK_SET);
+			            fread(&tempProductRecord, sizeof(ProductsData), 1, fpProducts);
+
+			            // Calcular el valor del producto
+			            float price = tempProductRecord.UnitPriceUSD * exchange * tempRecordSale1.Quantity;
+			            printf("%-17hu%-100s%-15hu%.2f\n", tempProductRecord.ProductKey, tempProductRecord.ProductName, tempRecordSale1.Quantity, price);
+			            subTotal += price;
+			        }
+
+			        // Avanzar al siguiente registro
+			        orderIndex++;
+
+			        // Actualizar los datos para la próxima iteración
+			        fseek(fpTemporalSales, sizeof(SalesData) * orderIndex, SEEK_SET);
+			        fread(&tempRecordSale1, sizeof(SalesData), 1, fpTemporalSales);
+
+			        fseek(fpTemporalSales, sizeof(SalesData) * (orderIndex + 1), SEEK_SET);
+			        fread(&tempRecordSale2, sizeof(SalesData), 1, fpTemporalSales);
+			    }
+
+			    // Procesar el último producto de la orden
+			    unsigned int productKey = tempRecordSale1.ProductKey;
+
+			    int positionProducts = BinarySearch("ProductsOrder.table", productKey, sizeof(ProductsData), productsRegisters, 1);
+			    if (positionProducts != -1) {
+			        fseek(fpProducts, sizeof(ProductsData) * positionProducts, SEEK_SET);
+			        fread(&tempProductRecord, sizeof(ProductsData), 1, fpProducts);
+
+			        float price = tempProductRecord.UnitPriceUSD * exchange * tempRecordSale1.Quantity;
+			        printf("%-17hu%-100s%-15hu%.2f\n", tempProductRecord.ProductKey, tempProductRecord.ProductName, tempRecordSale1.Quantity, price);
+			        subTotal += price;
+			    }
+
+			    orderIndex++; // Avanzar al siguiente índice
+			    printf("_________________________________________________________________________________________________________________________________________________________\n");
+				printf("%-117s%-15s%.2lf\n", "", "Subtotal", subTotal);
+			    totalValue += subTotal;
+			}
+
+			// Mostrar el total acumulado
+			printf("%-117s%-15s%.2lf\n", "", "TOTAL", totalValue);
+
+		}
+	}
+    clock_t end = clock();
+    double totalTime = ((double)(end - start)) / CLOCKS_PER_SEC;
+    int minutes = (int)(totalTime / 60);
+    int seconds = (int)(totalTime) % 60;
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+    printf("Time used to produce this listing: %d' %d\"\n", minutes, seconds);
+    printf("***************************LAST LINE OF THE REPORT***************************\n");
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+    fclose(fpTemporalSales); fclose(fpExchangeRates);
 }
 
 int main() {
@@ -1039,9 +1373,9 @@ int main() {
         } else if (option == 41 || option == 42) {
             PrintDeliveryTimeAnalysis();
         } else if (option == 51) {
-            printf("Si");
+            PrintReport5(1);
         } else if (option == 52) {
-            printf("Si con dos i");
+            PrintReport5(2);
         } else if (option != 0) {
             printf("\nInvalid option\n");
         } 
@@ -1049,3 +1383,13 @@ int main() {
 
     return 0;
 }
+
+/* 
+
+Ordena:
+    Customers, customer name.
+    Sales, customer key.
+    Products, procduct key.
+
+FILE TemporalFileSalesOption5 
+ */
